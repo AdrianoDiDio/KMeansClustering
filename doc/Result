@@ -1,0 +1,26 @@
+SEQUENTIAL
+32768,1000 centroids.
+KMeansAlgorithm has finished...took 418 steps to complete
+
+real    3m40,599s
+user    3m40,505s
+sys     0m0,048s
+Parallel
+2m15,458s
+
+220/135 => SpeedUp 1.62 times faster than sequetial.
+
+
+!!!TEST THIS CASE!!!
+Selected KMeans Algorithm with a dataset of size 50000 and 500 centroids.
+KMeansAlgorithm has finished...took 435 steps to complete
+168
+real    2m48,550s
+user    2m48,483s
+sys     0m0,076s
+
+Cuda
+127 seconds 1.32!
+real    2m47,350s
+user    1m58,714s
+sys     0m48,673s

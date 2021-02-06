@@ -1,0 +1,49 @@
+\subsection{Pseudo-Code}
+An example implementation can be seen below:
+
+A full pseudo-code sample is shown:
+\begin{algorithm}
+\caption{KMeansAlgorithm\newline
+Takes 3 parameters:Dataset,Number Of Points,Number of Centroids}\label{euclid}
+\begin{algorithmic}[1]
+\Procedure{KMeansAlgorithm}{Dataset[],n,k}
+	\For{\texttt{$i \gets 1$ to $k$}}
+        \State \texttt{Centroid[i] = Dataset[i]}
+    \EndFor
+    \While{true}
+       	\State {$SetClusters$ $\gets$ {0}}
+    		\For{\texttt{$i \gets 1$ to $n$}}
+    		    \State {$Min$ $\gets$ {-INF}}
+    			\For{\texttt{$j \gets 1$ to $k$}}
+        			\State {$Dist$ $\gets$ {$Dist(Dataset_{i},Centroid_{j})$}}
+        			\If {$Dist < Min$}
+        				\State {$Min$ $\gets$ {$Dist$}}
+        				\State {$Cluster_{i}$ $\gets$ {$Centroid_j$}}
+        			\EndIf
+    			\EndFor
+    		\EndFor
+    		\For{\texttt{$i \gets 1$ to $k$}}
+    		    \State {$ClusterSize$ $\gets$ {0}}
+    		    \State {$Sum$ $\gets$ {0}}
+    			\For{\texttt{$j \gets 1$ to $n$}}
+        			\If {$Cluster_{i} != i$}
+    					\State \textbf{continue}
+        			\EndIf
+        			\State {$Sum$ $\gets$ {$Sum + Dataset_{j}$}}
+				\State {$ClusterSize$ $\gets$ {$ClusterSize + 1$}}
+    			\EndFor
+    			\State {$Sum$ $\gets$ {$Sum / ClusterSize$}}
+			\State {$Delta$ $\gets$ {$VSub(Sum,Centroids_{i})$}}
+			\If {$Delta>Threshold$}
+    				\State \textbf{continue}
+        		\EndIf
+        		\State {$SetClusters$ $\gets$ {$SetCluster + 1$}}
+    		\EndFor
+    		\If {$SetClusters == k$}
+    			\State \textbf{exit}
+        	\EndIf
+    \EndWhile
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+ 
