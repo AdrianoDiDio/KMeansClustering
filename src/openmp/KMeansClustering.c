@@ -495,13 +495,14 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
         
         memset(ClusterMeans,0,ClusterMeansSize);
 
-//         #pragma omp parallel for firstprivate(ClusterCounter) shared(ClusterMeans)
+        #pragma omp parallel for firstprivate(ClusterCounter) shared(ClusterMeans)
         for( int i = 0; i < Dataset->NumPoints * Stride; i++ ) {
             int PointIndex = i / Stride;
             int StrideIndex = i % Stride;
-            int CentroidIndex = Clusters[PointIndex]; 
-//             #pragma omp atomic
-            ClusterMeans[CentroidIndex * Stride + StrideIndex] += Dataset->Points[PointIndex * Stride + StrideIndex];
+            int CentroidIndex = Clusters[PointIndex];
+            int LocalAddValue = Dataset->Points[PointIndex * Stride + StrideIndex];
+            #pragma omp atomic
+            ClusterMeans[CentroidIndex * Stride + StrideIndex] += LocalAddValue;
         }
 //         break;
         #pragma omp parallel for firstprivate(ClusterCounter) shared(ClusterMeans)
@@ -613,7 +614,7 @@ int main(int argc,char** argv)
         DPrintf("Couldn't load point dataset.\n");
         return -1;
     }
-    KMeansClustering(PointList,500,Stride);
+    KMeansClustering(PointList,5,Stride);
     PointArrayListCleanUp(PointList);
     free(PointList);
 //     if( !FlowerDataset ) {

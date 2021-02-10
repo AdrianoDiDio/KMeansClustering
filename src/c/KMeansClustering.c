@@ -552,7 +552,7 @@ int main(int argc,char** argv)
         DPrintf("Couldn't load point dataset.\n");
         return -1;
     }
-    KMeansClustering(PointList,500,Stride);
+    KMeansClustering(PointList,5,Stride);
     PointArrayListCleanUp(PointList);
     free(PointList);
 //     if( !FlowerDataset ) {

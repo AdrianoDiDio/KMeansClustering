@@ -430,7 +430,7 @@ int main(int argc,char** argv)
         return -1;
     }
     Start = SysMilliseconds();
-    CudaMain(300,Stride,PointList);
+    CudaMain(5,Stride,PointList);
     Delta = SysMilliseconds() - Start;
 	printf("Time: %f seconds\r\n", Delta * 0.001f);
     
