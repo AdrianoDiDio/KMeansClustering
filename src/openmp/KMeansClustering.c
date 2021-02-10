@@ -384,14 +384,14 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     int    DistancesSize;
     int   *Clusters;
     int    ClusterSize;
-    float  *ClusterCounter;
+    int   *ClusterCounter;
     int    ClusterCounterSize;
     float  *ClusterMeans;
     int    ClusterMeansSize;
-    float  Sum;
-    int    i;
-    int    j;
-    int    k;
+    int    Sum;
+//     int    i;
+//     int    j;
+//     int    k;
     int    Step;
     MinComparator_t Comparator;
     int    MaxThreadNumber;
@@ -419,9 +419,11 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     
     // 1) Selects K (NumCentroids) random centroids from the dataset.
 //     srand(time(0));
-    #pragma omp parallel for private(j) num_threads(MaxThreadNumber) schedule(static, (NumCentroids*Stride)/MaxThreadNumber)
-    for( i = 0; i < NumCentroids; i++ ) {
-        for( j = 0; j < Stride; j++ ) {
+    #pragma omp parallel for shared(Centroids) \
+    num_threads(MaxThreadNumber) schedule(static, (NumCentroids*Stride)/MaxThreadNumber)
+    for( int i = 0; i < NumCentroids; i++ ) {
+        for( int j = 0; j < Stride; j++ ) {
+            #pragma omp atomic write
             Centroids[i * Stride + j] = Dataset->Points[i * Stride +j];
         }
     }
@@ -437,83 +439,93 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     DistancesSize = Dataset->NumPoints * NumCentroids * sizeof(float);
     Distances = (float *) malloc(DistancesSize);
     
-    ClusterCounterSize = NumCentroids * sizeof(float);
-    ClusterCounter = (float *) malloc(ClusterCounterSize);
+    ClusterCounterSize = NumCentroids * sizeof(int);
+    ClusterCounter = (int *) malloc(ClusterCounterSize);
     
     ClusterSize = Dataset->NumPoints * sizeof(int);
     Clusters = (int *) malloc(ClusterSize);
     
     ClusterMeansSize = NumCentroids * Stride *sizeof(float);
     ClusterMeans = (float *) malloc(ClusterMeansSize);
-    
+
     Step = 0;
 //     Comparator = malloc(sizeof(MinComparator_t));
     while( 1 ) {
 //         2) Assign each points of the dataset to the nearest centroid.
 //         First get the distances...
         memset(Distances,0,DistancesSize);
-        #pragma omp parallel for private(j,k) num_threads(MaxThreadNumber) \
-        schedule(static, (Dataset->NumPoints*NumCentroids)/MaxThreadNumber) collapse(2)
-        for( i = 0; i < Dataset->NumPoints; i++ ) {
-            for( j = 0; j < NumCentroids; j++ ) {
+        #pragma omp parallel for firstprivate(Centroids,Dataset,Stride) /*private(j,k)*/ /*num_threads(MaxThreadNumber)*/ \
+//         schedule(static, (Dataset->NumPoints*NumCentroids)/MaxThreadNumber)
+        for( int i = 0; i < Dataset->NumPoints; i++ ) {
+            for( int j = 0; j < NumCentroids; j++ ) {
                 float LocalDistance = 0.f;
-                for( k = 0; k < Stride; k++ ) {
+                for( int k = 0; k < Stride; k++ ) {
                     LocalDistance += (Centroids[j * Stride + k]
                         - Dataset->Points[i * Stride + k]) * 
                         (Centroids[j * Stride + k] - Dataset->Points[i * Stride + k]);
                 }
+                #pragma omp atomic write
                 Distances[i * NumCentroids + j] = LocalDistance;
             }
         }
         memset(ClusterCounter,0,ClusterCounterSize);
+        memset(Clusters,0,ClusterSize);
+
 //         #pragma omp parallel firstprivate(ClusterCounter,Clusters)
-        #pragma omp parallel for schedule(guided) \
-            shared(Distances,Clusters,ClusterCounter) private(j)
-        for( i = 0; i < Dataset->NumPoints; i++ ) {
+        #pragma omp parallel for /*schedule(guided)*/ \
+            \
+            firstprivate(Dataset,Stride) shared(Distances,ClusterMeans,ClusterCounter) /*private(j)*/
+        for( int i = 0; i < Dataset->NumPoints; i++ ) {
             float Min = INFINITY;
             int Index = -1;
+            float LocalDistance = 0.f;
 //             #pragma omp parallel for reduction(NearestCentroid:Comparator)
-            for( j = 0; j < NumCentroids; j++ ) {
-                float LocalDistance = Distances[i * NumCentroids + j];
+            for( int j = 0; j < NumCentroids; j++ ) {
+                LocalDistance = Distances[i * NumCentroids + j];
                 if( LocalDistance < Min ) {
                     Min = LocalDistance;
                     Index = j;
                 }
             }
-            #pragma omp critical
-            ClusterCounter[Index]++;
+            #pragma omp atomic write
             Clusters[i] = Index;
+            #pragma omp atomic
+            ClusterCounter[Index]++;
         }
+        
         memset(ClusterMeans,0,ClusterMeansSize);
-        #pragma omp parallel for private(j) shared(ClusterMeans,Dataset)
-        for( i = 0; i < Dataset->NumPoints; i++ ) {
-            int CentroidIndex = Clusters[i];
-            #pragma omp critical
-            for( j = 0; j < Stride; j++ ) {
-                ClusterMeans[CentroidIndex * Stride + j] += Dataset->Points[i * Stride + j];
-            }
+
+//         #pragma omp parallel for firstprivate(ClusterCounter) shared(ClusterMeans)
+        for( int i = 0; i < Dataset->NumPoints * Stride; i++ ) {
+            int PointIndex = i / Stride;
+            int StrideIndex = i % Stride;
+            int CentroidIndex = Clusters[PointIndex]; 
+//             #pragma omp atomic
+            ClusterMeans[CentroidIndex * Stride + StrideIndex] += Dataset->Points[PointIndex * Stride + StrideIndex];
         }
-        #pragma omp parallel for private(j) shared(ClusterMeans,ClusterCounter)
-        for( i = 0; i < NumCentroids; i++ ) {
-            if( ClusterCounter[i] == 0 ) {
+//         break;
+        #pragma omp parallel for firstprivate(ClusterCounter) shared(ClusterMeans)
+        for( int i = 0; i < NumCentroids * Stride; i++ ) {
+            int CentroidIndex = i / Stride;
+            int StrideIndex = i % Stride;
+            int NumClusters = ClusterCounter[CentroidIndex]; 
+            if( NumClusters == 0 ) {
                 continue;
             }
-            for( j = 0; j < Stride; j++ ) {
-            #pragma omp critical
-//                 DPrintf("New centroid %i Position:%f;%f\n",);
-                ClusterMeans[i * Stride + j] /= ClusterCounter[i];
-            }
+            #pragma omp atomic
+            ClusterMeans[CentroidIndex * Stride + StrideIndex] /= (float) NumClusters;
         }
-        Sum = 0.f;
-        #pragma omp parallel for shared(ClusterMeans,Centroids) reduction(+: Sum)
-        for( i = 0; i < NumCentroids * Stride; i++ ) {
+        
+        Sum = 0;
+        #pragma omp parallel for reduction(+: Sum)
+        for( int i = 0; i < NumCentroids * Stride; i++ ) {
             float Delta;
-            float Value;
+            int   Value;
             int CentroidIndex = i / Stride;
             int StrideIndex = i % Stride;
             Delta = fabsf(ClusterMeans[CentroidIndex * Stride + StrideIndex] - Centroids[CentroidIndex * Stride + StrideIndex]);
-            Value = Delta < KMEANS_ALGORITHM_TOLERANCE ? 1.f : 0.f;
-            #pragma omp critical
+            Value = Delta < KMEANS_ALGORITHM_TOLERANCE ? 1 : 0;
+//             #pragma omp atomic
             Sum = Sum + Value;
         }
         if( Sum == NumCentroids * Stride ) {
@@ -524,6 +536,12 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
 //         break;
     }
     printf("Took %i steps to complete\n",Step);
+    
+    free(Centroids);
+    free(Distances);
+    free(ClusterCounter);
+    free(Clusters);
+    free(ClusterMeans);
 }
 
 PointArrayList_t *LoadPointsDataset(int *Stride)
@@ -562,6 +580,7 @@ PointArrayList_t *LoadPointsDataset(int *Stride)
                 Temp = CSVGetNumberFromBuffer(Temp,&Point[i]);
             }
             PointArrayListAdd(PointList,Point);
+            free(Point);
         }
         if( *Temp == '\n' ) {
             LineNumber++;
@@ -594,9 +613,9 @@ int main(int argc,char** argv)
         DPrintf("Couldn't load point dataset.\n");
         return -1;
     }
-    KMeansClustering(PointList,300,Stride);
-//     PointArrayListCleanUp(PointList);
-//     free(PointList);
+    KMeansClustering(PointList,500,Stride);
+    PointArrayListCleanUp(PointList);
+    free(PointList);
 //     if( !FlowerDataset ) {
 //         return -1;
 //     }

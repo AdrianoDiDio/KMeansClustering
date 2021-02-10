@@ -435,7 +435,7 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
 //         DumpClusters(Dataset,Centroids,NumCentroids,0);
         // 3) Recalculate centroid position based on the new clusters.
         NumClustersSet = 0;
-        for( int i = 0; i < NumCentroids; i++ ) {
+        for( i = 0; i < NumCentroids; i++ ) {
             memset(Sum,0,Stride * sizeof(float));
             ClusterSize = 0;
             for( j = 0; j < Dataset->NumPoints; j++ ) {
@@ -552,7 +552,7 @@ int main(int argc,char** argv)
         DPrintf("Couldn't load point dataset.\n");
         return -1;
     }
-    KMeansClustering(PointList,300,Stride);
+    KMeansClustering(PointList,500,Stride);
     PointArrayListCleanUp(PointList);
     free(PointList);
 //     if( !FlowerDataset ) {

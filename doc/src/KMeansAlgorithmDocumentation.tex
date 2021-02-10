@@ -15,6 +15,10 @@
 \usepackage{url}
 
 
+\setcounter{secnumdepth}{4}
+% New Line after Paragraph
+\newcommand{\nlparagraph}[1]{\paragraph{#1}\mbox{}\\}
+
 \cvprfinalcopy % *** Uncomment this line for the final submission
 
 \def\cvprPaperID{****} % *** Enter the CVPR Paper ID here
@@ -265,98 +269,172 @@ proceed to save the data-set and the centroids into a csv file.
 \subsubsection{Parallel Version}
 Looking at the sequential version, we can see that many operations could be sped up by running it in parallel since they only depends by
 themselves.\\
+The parallel version has been implemented using two frameworks:Cuda and OpenMP.\\
+The differences between the two implementation are related to where the code is executed, while Cuda uses an NVidia GPU to 
+schedule and run the threads, the OpenMP framework uses the CPU.\\
+\nlparagraph{CUDA}
+
 The CUDA framework offers a simple API that can be used to launch thread organized in block and grids.\\
 All the CUDA functions are checked using a macro that calls a function to look for any error when calling the functions.\\
 The parallel version is made of several function, each one has a specific task that is done by launching a kernel and waiting for his
 completion.\newpage
 The first step is the initialization, first we need to initialize the data-set by copying it into the GPU:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Data-Set Initialization,firstline=244,lastline=254]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 using built-in CUDA functions cudaMalloc and cudaMemcpy to respectively allocate the memory into the GPU and to transfer the data from
 host to device.\\
 Then we need to initialize the centroids:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroids Initialization,firstline=186,lastline=203]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 this function launch a kernel with the given BlockSize and GridSize that sets the Centroids data using multiple threads:\newpage
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroids Initialization,firstline=105,lastline=114]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 each centroid is set independently from each other by using an unique ThreadIndexX and ThreadIndexY to access the array.\\
 Other variables, needed by the algorithm, are simply allocated on the device and a call to `cudaMemset' is made to initialize it.\\
 As an example, the snippet below show the initialization of the `ClusterCounter' variable:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Example Initialization,firstline=207,lastline=219]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 Full code of the initialization phase is below:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Main Initialization Code,firstline=272,lastline=280]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 Then, as seen in the sequential version, the main loop is declared as a simple infinite while loop and the algorithm begins:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Main Loop,firstline=284,lastline=295]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 The first step, called `CudaComputeDistances' launch a kernel to calculate the distances between points and centroids:
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Distance Calculator Kernel Launcher,firstline=132,lastline=141]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 the actual kernel is below:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Distance Calculator Kernel,firstline=81,lastline=103]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 in the snippet above, the distance is calculated between a centroid and a point, the sum is first done locally by iterating over the 
 vectors' components and then stored in a shared array to be used later when calculating the minimum distance.\\
 Then, the clusters are built by evaluating the calculated distances through another kernel:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Cluster Builder Kernel,firstline=60,lastline=79]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 each point selects the nearest centroid and saves it into a shared array containing the built cluster list.\\
 Now, we need to update the centroid position using the newly built clusters, before doing so, we need to save the old centroid list in
 order to be able to later evaluate if the centroid position have changed or we have reached the stop condition:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroid List Backup,firstline=287,lastline=287]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 after saving it,we can calculate the new position by first clearing out the centroid list array:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroid Position Update,firstline=179,lastline=180]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 then, we first start by calculating the sum of all points belonging to each cluster:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Mean Sum Calculation,firstline=46,lastline=59]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 in this function we need to use the atomic instruction since multiple threads can access the array for updating it in parallel, without 
 it, a data race condition could occur.\\
 Finally the actual mean is calculated by launching another kernel:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Mean Calculation,firstline=33,lastline=45]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 where the actual mean is calculated, in this function we need to check if the number of cluster is not zero, due to the possibility of
 a cluster being empty.\\
 Finally before starting a new iteration of the loop the exit condition is evaluated by launching a kernel that has to check if the old
 centroids list is similar to the new centroids list.\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition Calculator Kernel,firstline=18,lastline=32]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 This kernel evaluates all the centroids elements in the old and new list by calculating the difference between the elements.\\
 If the difference is lower than the tolerance value then a value of 1 is added to the Sum array otherwise 0.\\
 When the kernel completes, the sum variable is copied from Device to host:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition Sum Copy,firstline=128,lastline=128]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 and returned, full function can be seen below:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition Kernel Launcher,firstline=116,lastline=131]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 As it can be seen above, the function returns 0 if the centroids positions have changed during last iteration or 1 if not.\\
 In the main loop, after calling it, we check to see if we can stop by comparing the returned value to 1:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition,firstline=290,lastline=293]{
-	"codes/Parallel/KMeansClustering.cu"}
+	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 if it is true then the program stops the main loop,saves the result in a csv file and exit.\\
+\nlparagraph{OpenMP}
+The OpenMP implementation is taken from the sequential version, by adding some OpenMP clauses to instruct the library to use
+multiple threads.\\
+The first step is to initialize the centroids, as seen in the previous implementations, we take the first k points from the 
+dataset, where k is the number of clusters selected:\\
+
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Centroid Initialization,firstline=19,lastline=24]{
+	"codes/Parallel/openmp/KMeansClustering.c"}
+\end{lstinputlisting}
+
+as we can see from the above code snippet, OpenMP uses a different approach, rather than having a library that exposes some 
+functions, OpenMP uses pre-processor directives to instruct the compiler to use multiple threads, there are some function 
+declared as normal C function like the one required in our code to get the maximum number of hardware threads using the 
+function:\\
+
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Get Max Number of Threads Function,firstline=17,lastline=17]{"codes/Parallel/openmp/KMeansClustering.c"}
+\end{lstinputlisting}
+
+this number will be used throughout the implementation to optimize the thread usage.\\
+In this specific case, we run multiple threads using a static scheduler, where each threads gets a chunk based on the number of 
+centroids and the stride (the maximum dimension of the vector) and divides it by the maximum number of hardware threads.\\
+After initialization, we need to calculate the distances between each point and each centroid:\\
+
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Distance Calculation,firstline=29,lastline=41]
+					   {"codes/Parallel/openmp/KMeansClustering.c"}
+\end{lstinputlisting}
+as we can see from the above code, we need to run two for loops to perform this calculation, in this instance, OpenMP is instructed to use a static scheduler as seen in the previous code, and to collapse the two for loops, which causes OpenMP to
+re-write the for loop in one big loop that goes from zero to (Dataset->NumPoints * NumCentroids) that it is then divided into
+chunk of size equal to the maximum allowed iteration to calculate all the required distances.\\
+After calculating all the distances we need, for each point in the dataset, to find the closest centroid:\\
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Nearest Centroid Calculation,firstline=45,lastline=60]
+					   {"codes/Parallel/openmp/KMeansClustering.c"}
+\end{lstinputlisting}
+in the above code, we can see that the scheduler has changed to a new type called `guided', this scheduler divides the work 
+into multiple chunks of decreasing size until all the calculations have been performed, after each iteration of the centroid's
+array, the closest one is found and saved into a shared array along with the number of points that belongs to that specific 
+cluster.\\
+It is important to note that, since the cluster's array is shared we need to make sure that each thread exclusively access it 
+by using the directive `critical' that makes sure that only one thread at time can access the shared resources.\\
+After creating the new clusters, we need to update the centroids position:\\
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Mean Calculation I,firstline=63,lastline=70]
+					   {"codes/Parallel/openmp/KMeansClustering.c"}
+\end{lstinputlisting}
+as we can see from the above code, we starts by calculating the sum of all positions of the points belonging to a specific 
+cluster, as said before, since the `ClusterMean' array is shared we need to make sure that there are no data-races by adding 
+the critical instruction.\\
+After performing the sum of all points we need to divide it by the number of points contained in each cluster to obtain the 
+mean value:\\
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Mean Calculation II,firstline=72,lastline=81]
+					   {"codes/Parallel/openmp/KMeansClustering.c"}
+\end{lstinputlisting}
+the code is similar to the previous one, only difference is the final operation being a division rather than a sum.\\
+Finally, we need to see if we have reached our exit condition by comparing the new centroid's position with the old one:\\
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Centroid's Position Comparison,firstline=83,lastline=94]
+					   {"codes/Parallel/openmp/KMeansClustering.c"}
+\end{lstinputlisting}
+the above snippet, uses a different directive to divide the work among the threads called a reduction.\\
+This operator performs a reduction, since the particular order in which the sum is calculated is not important.\\
+The algorithm is simple, for each centroid, the difference between the old value and the new is compared to a tolerance value,
+if the difference is less than the tolerance value, a value of one is added to the sum variable otherwise zero, the exit 
+condition occurs, when after iterating over all centroids, the sum variable is equal to the Number of centroids times the 
+stride:\\
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Exit Condition,firstline=95,lastline=97]
+					   {"codes/Parallel/openmp/KMeansClustering.c"}
+\end{lstinputlisting}
+as we can see from the above snippet, if it is the case then the two arrays are similar and the program can terminate his 
+execution, otherwise a new iteration is done until this condition is hit.\\
 \section{Metrics}
-In order to see what advantages the parallel implementation has brought we need to measure the execution time of both implementations by
-using the same data-set as well as the same number of clusters.\\
+In order to see what advantages the parallel implementation has brought we need to measure the execution time of both 
+implementations by using the same data-set as well as the same number of clusters.\\
+Run-Times were collected using an `Intel(R) Core(TM) i5-4200M' for the c and OpenMP version while the CUDA version used an
+`NVidia GeForce GT 720M'.\\
 The execution time is measured using the same function:\\
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=Time Function,firstline=1,lastline=13]{
 	"codes/metrics.c"}
