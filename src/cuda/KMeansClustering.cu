@@ -136,7 +136,7 @@ int CudaCompareCentroidsList(int *DeviceSum,float *DeviceCentroidList,float *Dev
     dim3   GridSize;
     int    Sum;
 
-    BlockSize = dim3(64,Stride,1);
+    BlockSize = dim3(256,Stride,1);
     GridSize = dim3((NumCentroids / 16) + 1,1,1);
     
     CUDA_CHECK_RETURN(cudaMemset((void *)DeviceSum,0,sizeof(int)));
@@ -155,8 +155,8 @@ void CudaComputeDistances(float *DeviceDistanceList,float *DeviceCentroidList,in
     dim3   BlockSize;
     dim3   GridSize;
 
-    BlockSize = dim3(32,16,1);
-    GridSize = dim3((NumPoints / 16) + 1 ,(NumCentroids / 16) + 1 ,1);
+    BlockSize = dim3(32,32,1);
+    GridSize = dim3((NumPoints + BlockSize.x - 1) / BlockSize.x ,(NumCentroids + BlockSize.y - 1) / BlockSize.y ,1);
     ClusterComputeDistanceSquaredKernel<<<GridSize,BlockSize>>>
         (DeviceDistanceList,DeviceCentroidList,NumCentroids,DevicePointList,NumPoints,Stride);
 
@@ -169,8 +169,8 @@ void CudaBuildClusterList(int *DeviceClusterList,float *DeviceDistanceList,int N
     dim3   BlockSize;
     dim3   GridSize;
 
-    BlockSize = dim3(64,1,1);
-    GridSize = dim3((NumPoints / 16) + 1,1,1);
+    BlockSize = dim3(256,1,1);
+    GridSize = dim3((NumPoints + BlockSize.x - 1) / BlockSize.x,1,1);
     BuildClusterListKernel<<<GridSize,BlockSize>>>(DeviceClusterList,DeviceDistanceList,NumPoints,NumCentroids,Stride);
 
 //     CUDA_CHECK_RETURN( cudaPeekAtLastError() );
@@ -183,8 +183,8 @@ void CudaSumPointsInClusters(float *DeviceCentroidList,int NumCentroids,int *Dev
     dim3   BlockSize;
     dim3   GridSize;
 
-    BlockSize = dim3(64,Stride,1);
-    GridSize = dim3((NumPoints / 16) + 1,1,1);
+    BlockSize = dim3(256,Stride,1);
+    GridSize = dim3((NumPoints + BlockSize.x - 1) / BlockSize.x,1,1);
 
     SumPointsInClustersKernel<<<GridSize,BlockSize>>>(DeviceCentroidList,NumCentroids,DeviceClusterCounter,
                                                       DeviceClusterList,DevicePointList,NumPoints,Stride);
@@ -198,8 +198,8 @@ void CudaMeanPointsInClusters(float *DeviceCentroidList,int NumCentroids,float *
     dim3   BlockSize;
     dim3   GridSize;
 
-    BlockSize = dim3(64,Stride,1);
-    GridSize = dim3((NumCentroids / 16) + 1,1,1);
+    BlockSize = dim3(256,Stride,1);
+    GridSize = dim3((NumCentroids + BlockSize.x - 1) / BlockSize.x,1,1);
 
     MeanPointsInClustersKernel<<<GridSize,BlockSize>>>(DeviceCentroidList,NumCentroids,DeviceClusterCounter,Stride);
 
@@ -234,8 +234,8 @@ float *CudaInitCentroids(int NumCentroids,float *DevicePointList,int NumPoints,i
 
     CUDA_CHECK_RETURN(cudaMalloc((void**)&DeviceCentroidOutputList,CentroidListSize));
 
-    BlockSize = dim3(16, Stride, 1);
-    GridSize = dim3((NumCentroids / 16) + 1,1,1);
+    BlockSize = dim3(64, Stride, 1);
+    GridSize = dim3((NumCentroids + BlockSize.x - 1) / BlockSize.x,1,1);
     CentroidsInitKernel<<<GridSize,BlockSize>>>(DeviceCentroidOutputList,NumCentroids,DevicePointList,NumPoints,Stride);
 
 //     CUDA_CHECK_RETURN( cudaPeekAtLastError() );
