@@ -6,6 +6,7 @@ void CreateDirIfNotExists(char *DirName);
 int IsAlpha(char c);
 int IsNumber(char c);
 char *StringCopy(const char *From);
+int StringToInt(char *String);
 float StringToFloat(char *String);
 int GetFileLength(FILE *Fp);
 void DPrintf(char *Fmt, ...);

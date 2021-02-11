@@ -72,6 +72,23 @@ char *StringCopy(const char *From)
     return Dest;
 }
 
+int StringToInt(char *String)
+{
+    char *EndPtr;    
+    long Value;
+    
+    Value = strtol(String, &EndPtr, 10);
+    
+    if( errno == ERANGE && Value == LONG_MIN ) {
+        DPrintf("StringToInt %s (%lu) invalid...underflow occurred\n",String,Value);
+        return 0;
+    } else if( errno == ERANGE && Value == LONG_MAX ) {
+        DPrintf("StringToInt %s (%lu) invalid...overflow occurred\n",String,Value);
+        return 0;
+    }
+    return Value;
+}
+
 float StringToFloat(char *String)
 {
     char *EndPtr;    

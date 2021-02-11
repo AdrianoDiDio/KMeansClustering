@@ -1,7 +1,7 @@
 #include "KMeansClustering.h"
 
 
-PointArrayList_t *LoadPointsDataset(int *Stride)
+PointArrayList_t *LoadPointsDataset(char *File,int *Stride)
 {    
     PointArrayList_t *PointList;
     float *Point;
@@ -11,7 +11,13 @@ PointArrayList_t *LoadPointsDataset(int *Stride)
     int LocalStride;
     int i;
     
-    Buffer = ReadTextFile("Dataset/data_blob.csv",0);
+    if( !File ) {
+        printf("LoadPointsDataset:Invalid File\n");
+        return NULL;
+    }
+    
+    Buffer = ReadTextFile(File,0);
+    
     if( Buffer == NULL ) {
         DPrintf("Couldn't read file\n");
         return NULL;

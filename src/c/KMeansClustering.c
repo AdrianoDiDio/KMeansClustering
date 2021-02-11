@@ -1,5 +1,23 @@
 #include "KMeansClustering.h"
 
+int StartSeconds = 0;
+int SysMilliseconds()
+{
+    struct timeval tp;
+    int CTime;
+
+    gettimeofday(&tp, NULL);
+
+    if ( !StartSeconds ){
+        StartSeconds = tp.tv_sec;
+        return tp.tv_usec/1000;
+    }
+
+    CTime = (tp.tv_sec - StartSeconds)*1000 + tp.tv_usec / 1000;
+
+    return CTime;
+}
+
 void CreateDirIfNotExists(char *DirName) {
     struct stat FileStat;
 
@@ -81,6 +99,23 @@ void DPrintf(char *Fmt, ...)
     fputs(Temp, stdout);
 #endif
     va_end(arglist);
+}
+
+int StringToInt(char *String)
+{
+    char *EndPtr;    
+    long Value;
+    
+    Value = strtol(String, &EndPtr, 10);
+    
+    if( errno == ERANGE && Value == LONG_MIN ) {
+        DPrintf("StringToInt %s (%lu) invalid...underflow occurred\n",String,Value);
+        return 0;
+    } else if( errno == ERANGE && Value == LONG_MAX ) {
+        DPrintf("StringToInt %s (%lu) invalid...overflow occurred\n",String,Value);
+        return 0;
+    }
+    return Value;
 }
 
 float StringToFloat(char *String)
@@ -384,6 +419,8 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     int NumStep;
     int HasToStop;
     int NumClustersSet;
+    int Start;
+    int End;
     
     if( !Dataset ) {
         DPrintf("KMeansClustering:Invalid Dataset.\n");
@@ -403,6 +440,7 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     printf("Selected KMeans Algorithm with a dataset of size %i and %i centroids.\n",Dataset->NumPoints,NumCentroids);
     
     // 1) Selects K (NumCentroids) random centroids from the dataset.
+    Start = SysMilliseconds();
     srand(time(0)); 
     for( i = 0; i < NumCentroids; i++ ) {
         Centroids[i].Position = malloc(Stride * sizeof(float));
@@ -479,7 +517,8 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
         }
         NumStep++;
     }
-    printf("KMeansAlgorithm has finished...took %i steps to complete\n",NumStep);
+    End = SysMilliseconds();
+    printf("KMeansAlgorithm has finished...took %i steps to complete %i ms elapsed\n",NumStep,End-Start);
     DumpClusters(Dataset,Centroids,NumCentroids,Stride,NumStep);
     for( i = 0; i < NumCentroids; i++ ) {
         free(Centroids[i].Position);
@@ -489,7 +528,7 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     free(Delta);
 }
 
-PointArrayList_t *LoadPointsDataset(int *Stride)
+PointArrayList_t *LoadPointsDataset(char *File,int *Stride)
 {    
     PointArrayList_t *PointList;
     Point_t Iterator;
@@ -499,7 +538,11 @@ PointArrayList_t *LoadPointsDataset(int *Stride)
     int LocalStride;
     int i;
     
-    Buffer = ReadTextFile("Dataset/data_blob.csv",0);
+    if( !File ) {
+        printf("LoadPointsDataset:Invalid file\n");
+        return NULL;
+    }
+    Buffer = ReadTextFile(File,0);
     if( Buffer == NULL ) {
         DPrintf("Couldn't read file\n");
         return NULL;
@@ -526,7 +569,7 @@ PointArrayList_t *LoadPointsDataset(int *Stride)
         }
         Temp++;
     }
-#if 1 /*_DEBUG*/
+#if 0 /*_DEBUG*/
 //     int i;
     for( i = 0; i < PointList->NumPoints; i++ ) {
         PrintPoint(PointList->Points[i].Position,LocalStride);
@@ -542,23 +585,23 @@ PointArrayList_t *LoadPointsDataset(int *Stride)
 int main(int argc,char** argv)
 {
     PointArrayList_t *PointList;
+    int NumClusters;
     int Stride;
-//     Flower_t *FlowerDataset;
-    
-//     FlowerDataset = LoadIrisDataset();
-    PointList = LoadPointsDataset(&Stride);
+
+    if( argc != 3 ) {
+        printf("Usage:%s <Dataset File> <Number of Clusters>\n",argv[0]);
+        return -1;
+    }
+
+    PointList = LoadPointsDataset(argv[1],&Stride);
     
     if( PointList == NULL ) {
         DPrintf("Couldn't load point dataset.\n");
         return -1;
     }
-    KMeansClustering(PointList,5,Stride);
+    NumClusters = StringToInt(argv[2]);
+    KMeansClustering(PointList,NumClusters,Stride);
     PointArrayListCleanUp(PointList);
     free(PointList);
-//     if( !FlowerDataset ) {
-//         return -1;
-//     }
-    
-//     free(FlowerDataset);
-
+    return 1;
 }

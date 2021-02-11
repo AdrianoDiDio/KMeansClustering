@@ -7,8 +7,10 @@
 #include <stdarg.h>
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <math.h>
 #include <time.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 

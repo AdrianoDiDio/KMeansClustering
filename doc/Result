@@ -1,26 +1,7 @@
-SEQUENTIAL
-32768,1000 centroids.
-KMeansAlgorithm has finished...took 418 steps to complete
-
-real    3m40,599s
-user    3m40,505s
-sys     0m0,048s
-Parallel
-2m15,458s
-
-220/135 => SpeedUp 1.62 times faster than sequetial.
-
-
-!!!TEST THIS CASE!!!
-Selected KMeans Algorithm with a dataset of size 50000 and 500 centroids.
-KMeansAlgorithm has finished...took 435 steps to complete
-168
-real    2m48,550s
-user    2m48,483s
-sys     0m0,076s
-
-Cuda
-127 seconds 1.32!
-real    2m47,350s
-user    1m58,714s
-sys     0m48,673s
+Dataset     K       Sequential      OpenMP      Cuda
+2048        5       9ms             4ms         26ms
+2048        500     582ms           632ms       240ms
+32768       10      292ms           343ms       72ms
+32768       250     48046ms         15076ms     15374ms
+50000       250     47392ms         25414ms     13741ms
+50000       512     103881ms        63249ms     33461ms

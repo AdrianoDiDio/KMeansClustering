@@ -27,8 +27,6 @@ __global__ void CompareCentroidsKernel(int *Sum,float *Centroids,float *OldCentr
     if( ThreadIndexX < NumCentroids ) {
         Delta = fabsf(Centroids[ThreadIndexX * Stride + ThreadIndexY] - OldCentroids[ThreadIndexX * Stride + ThreadIndexY]);
         Value = Delta < KMEANS_ALGORITHM_TOLERANCE ? 1 : 0;
-//         printf("Delta between %f and %f is %f Pass:%i Threshold:%f\n",Centroids[ThreadIndexX * Stride + ThreadIndexY],
-//                OldCentroids[ThreadIndexX * Stride + ThreadIndexY],Delta,Value,KMEANS_ALGORITHM_TOLERANCE);
         atomicAdd(Sum,Value);
     }
 }
@@ -68,9 +66,8 @@ __global__ void BuildClusterListKernel(int *Clusters,float *Distances,int NumPoi
     float Min;
     int MinIndex;
     int i;
-    /*
-        TODO:Optimize using parallel reduction...
-    */
+
+    
     if( ThreadIndexX < NumPoints ) {
         Min = INFINITY;
         MinIndex = 0;
@@ -97,7 +94,7 @@ __global__ void ClusterComputeDistanceSquaredKernel(float *Distances,
     ThreadIndexX = blockIdx.x * blockDim.x + threadIdx.x;
     ThreadIndexY = blockIdx.y * blockDim.y + threadIdx.y;
     if( ThreadIndexX < NumPoints && ThreadIndexY < NumCentroids ) {
-    LocalDistance = 0.f;
+        LocalDistance = 0.f;
         for( i = 0; i < Stride; i++ ) {
             CentroidIndex = ThreadIndexY * Stride + i;
             DatasetIndex = ThreadIndexX  * Stride + i;
@@ -108,8 +105,6 @@ __global__ void ClusterComputeDistanceSquaredKernel(float *Distances,
         //of size equal to the number of points in the dataset
         //where each block contains a float distance for each centroid.
         Distances[ThreadIndexX * NumCentroids + ThreadIndexY] = LocalDistance;
-    } else {
-//         printf("Discard++\n");
     }
 }
 
@@ -320,6 +315,8 @@ void CudaMain(int NumCentroids,int Stride,PointArrayList_t *PointList)
     float  *DebugOutputList4;
     int    DebugOutputListSize4;
     int Step;
+    int Start;
+    int End;
 //     cudaProfilerStart();
     DebugOutputListSize = PointList->NumPoints * NumCentroids * sizeof(float);
     DebugOutputList = (float *) malloc(DebugOutputListSize);
@@ -335,6 +332,8 @@ void CudaMain(int NumCentroids,int Stride,PointArrayList_t *PointList)
 
     
     assert(PointList->Stride == Stride);
+    
+    Start = SysMilliseconds();
     
     DevicePointList = CudaInitPointList(PointList);
     DeviceCentroidList = CudaInitCentroids(NumCentroids,DevicePointList,PointList->NumPoints,Stride);
@@ -395,7 +394,8 @@ void CudaMain(int NumCentroids,int Stride,PointArrayList_t *PointList)
         }
         Step++;
     }
-    printf("Cuda Completed in %i steps.\n",Step);
+    End = SysMilliseconds();
+    printf("Cuda Completed in %i steps %i ms elapsed.\n",Step,End-Start);
     cudaMemcpy(DebugOutputList4, DeviceCentroidList, DebugOutputListSize4,cudaMemcpyDeviceToHost);
         //Cluster Index List
     cudaMemcpy(DebugOutputList2, DeviceClusterList, DebugOutputListSize2,cudaMemcpyDeviceToHost);
@@ -410,30 +410,33 @@ void CudaMain(int NumCentroids,int Stride,PointArrayList_t *PointList)
     cudaFree(DeviceDistanceList);
     cudaFree(DeviceClusterList);
     cudaFree(DeviceClusterCounter);
+    cudaFree(DeviceSum);
     free(DebugOutputList);
     free(DebugOutputList2);
     free(DebugOutputList3);
     free(DebugOutputList4);
-//     cudaProfilerStop();
-
 }
 int main(int argc,char** argv)
 {
     PointArrayList_t *PointList;
-    long Start;
-    long Delta;
+    int NumClusters;
     int Stride;
-    PointList = LoadPointsDataset(&Stride);
+
+    if( argc != 3 ) {
+        printf("Usage:%s <Dataset File> <Number of Clusters>\n",argv[0]);
+        return -1;
+    }
+    
+    PointList = LoadPointsDataset(argv[1],&Stride);
     
     if( PointList == NULL ) {
         DPrintf("Couldn't load point dataset.\n");
         return -1;
     }
-    Start = SysMilliseconds();
-    CudaMain(5,Stride,PointList);
-    Delta = SysMilliseconds() - Start;
-	printf("Time: %f seconds\r\n", Delta * 0.001f);
     
+    NumClusters = StringToInt(argv[2]);
+    
+    CudaMain(NumClusters,Stride,PointList);
     
     PointArrayListCleanUp(PointList);
     

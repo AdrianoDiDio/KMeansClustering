@@ -9,7 +9,7 @@ typedef struct PointArrayList_s {
     int      Size;
 } PointArrayList_t;
 
-PointArrayList_t *LoadPointsDataset(int *Stride);
+PointArrayList_t *LoadPointsDataset(char *File,int *Stride);
 
 void PointArrayListInit(PointArrayList_t *PointList,int InitialSize,int Stride);
 void PointArrayListAdd(PointArrayList_t *PointList, float *Point);

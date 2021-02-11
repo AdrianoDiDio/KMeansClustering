@@ -1,5 +1,23 @@
 #include "KMeansClustering.h"
 
+int StartSeconds = 0;
+int SysMilliseconds()
+{
+    struct timeval tp;
+    int CTime;
+
+    gettimeofday(&tp, NULL);
+
+    if ( !StartSeconds ){
+        StartSeconds = tp.tv_sec;
+        return tp.tv_usec/1000;
+    }
+
+    CTime = (tp.tv_sec - StartSeconds)*1000 + tp.tv_usec / 1000;
+
+    return CTime;
+}
+
 void CreateDirIfNotExists(char *DirName) {
     struct stat FileStat;
 
@@ -100,6 +118,23 @@ float StringToFloat(char *String)
     return Value;
 }
 
+int StringToInt(char *String)
+{
+    char *EndPtr;    
+    long Value;
+    
+    Value = strtol(String, &EndPtr, 10);
+    
+    if( errno == ERANGE && Value == LONG_MIN ) {
+        DPrintf("StringToInt %s (%lu) invalid...underflow occurred\n",String,Value);
+        return 0;
+    } else if( errno == ERANGE && Value == LONG_MAX ) {
+        DPrintf("StringToInt %s (%lu) invalid...overflow occurred\n",String,Value);
+        return 0;
+    }
+    return Value;
+}
+
 int GetFileLength(FILE *Fp)
 {
     int Length;
@@ -142,50 +177,6 @@ char *ReadTextFile(char *File,int Length)
     return Result;
 }
 
-void FlowerPrint(Flower_t *Flower)
-{
-    if( Flower == NULL ){
-        return;
-    }
-    DPrintf("Species:%s\n",Flower->Species);
-    DPrintf("Sepal Length:%f\n",Flower->SepalLength);
-    DPrintf("Sepal Width:%f\n",Flower->SepalWidth);
-    DPrintf("Petal Length:%f\n",Flower->PetalLength);
-    DPrintf("Petal Length:%f\n",Flower->PetalWidth);
-}
-Flower_t *LoadIrisDatasetOld()
-{
-
-    Flower_t *FlowerDataset;
-    Flower_t Iterator;
-    FILE *CSVDatasetFile;
-    int RetValue;
-    
-    CSVDatasetFile = fopen("Dataset/iris.csv","r");
-    if( CSVDatasetFile == NULL ) {
-        DPrintf("LoadIrisDataset:Couldn't open dataset...\n");
-        return NULL;
-    }
-    FlowerDataset = (Flower_t *) malloc(sizeof(Flower_t));
-    FlowerDataset->Next = NULL;
-    char Head1[256];
-    char Head2[256];
-    char Head3[256];
-    char Head4[256];
-    char Head5[256];
-    RetValue = fscanf(CSVDatasetFile,"%s,%s,%s,%s,%s\n",Head1,Head2,Head3,Head4,Head5);
-    while( 1 ) {
-        RetValue = fscanf(CSVDatasetFile,"%f,%f,%f,%f,%s\n",&Iterator.SepalLength,&Iterator.SepalWidth,&Iterator.PetalLength,
-            &Iterator.PetalWidth,Iterator.Species);
-        if( RetValue != 5 ) {
-            DPrintf("Done or found an invalid line...\n");
-            break;
-        }
-        DPrintf("Loaded %f;%f;%f;%f; Species %s\n",Iterator.SepalLength,Iterator.SepalWidth,Iterator.PetalLength,
-            Iterator.PetalWidth,Iterator.Species);
-    }
-    return FlowerDataset; 
-}
 char *CSVGetNumberFromBuffer(char *Buffer,float *Value)
 {
     int i = 0;
@@ -264,47 +255,6 @@ char *CSVSkipLine(char *Buffer,int *NumColumns)
     return Buffer;
 }
 
-Flower_t *LoadIrisDataset()
-{
-    Flower_t *FlowerDataset;
-    Flower_t Iterator;
-    char *Buffer;
-
-//     char *Line;
-//     int RetValue;
-//     int i;
-    
-
-    Buffer = ReadTextFile("Dataset/iris.csv",0);
-    if( Buffer == NULL ) {
-        DPrintf("Couldn't read file\n");
-        return NULL;
-    }
-    FlowerDataset = (Flower_t *) malloc(sizeof(Flower_t));
-    FlowerDataset->Next = NULL;
-    
-    int LineNumber = 0;
-    while( *Buffer ) {
-        //Buffer a line
-        if( LineNumber == 0 ) {
-            Buffer = CSVSkipLine(Buffer,NULL);
-        } else {
-            Buffer = CSVGetNumberFromBuffer(Buffer,&Iterator.SepalLength);
-            Buffer = CSVGetNumberFromBuffer(Buffer,&Iterator.SepalWidth);
-            Buffer = CSVGetNumberFromBuffer(Buffer,&Iterator.PetalLength);
-            Buffer = CSVGetNumberFromBuffer(Buffer,&Iterator.PetalWidth);
-            Buffer = CSVGetStringFromBuffer(Buffer,Iterator.Species);
-            FlowerPrint(&Iterator);
-        }
-        if( *Buffer == '\n' ) {
-            LineNumber++;
-        }
-        Buffer++;
-    }
-    DPrintf("File has %i lines\n",LineNumber);
-    return FlowerDataset; 
-}
-
 void PrintPoint(float *Position,int Stride)
 {
     int i;
@@ -315,7 +265,7 @@ void PrintPoint(float *Position,int Stride)
     DPrintf("\n");
 }
 
-void DumpClusters(PointArrayList_t *Dataset,float *Centroids,int NumCentroids,int Stride,int Pass)
+void DumpClusters(PointArrayList_t *Dataset,float *Centroids,int NumCentroids,int *Clusters,int Stride,int Pass)
 {
     FILE *OutCentroidCSV;
     FILE *OutDatasetCSV;
@@ -364,7 +314,7 @@ void DumpClusters(PointArrayList_t *Dataset,float *Centroids,int NumCentroids,in
         for( j = 0; j < Stride; j++ ) {
             fprintf(OutDatasetCSV,"%f,",Dataset->Points[i * Stride + j]);
         }
-//         fprintf(OutDatasetCSV,"%i\n",Dataset->Points[i].CentroidIndex);
+        fprintf(OutDatasetCSV,"%i\n",Clusters[i]);
     }
     
     fclose(OutCentroidCSV);
@@ -389,6 +339,8 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     float  *ClusterMeans;
     int    ClusterMeansSize;
     int    Sum;
+    int    Start;
+    int    End;
 //     int    i;
 //     int    j;
 //     int    k;
@@ -413,10 +365,11 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     
     Centroids = (float *) malloc(NumCentroids * Stride * sizeof(float));
     MaxThreadNumber = omp_get_max_threads();
-    printf("Selected KMeans Algorithm with a dataset of size %i and %i centroids Max Threads:%i.\n",Dataset->NumPoints,NumCentroids,
-        MaxThreadNumber
+    printf("Selected KMeans Algorithm with a dataset of size %i and %i centroids Max Threads:%i.\n",
+           Dataset->NumPoints,NumCentroids,MaxThreadNumber
     );
     
+    Start = SysMilliseconds();
     // 1) Selects K (NumCentroids) random centroids from the dataset.
 //     srand(time(0));
     #pragma omp parallel for shared(Centroids) \
@@ -536,8 +489,9 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
         Step++;
 //         break;
     }
-    printf("Took %i steps to complete\n",Step);
-    
+    End = SysMilliseconds();
+    printf("Took %i steps to complete %i ms elapsed\n",Step,End-Start);
+    DumpClusters(Dataset,Centroids,NumCentroids,Clusters,Stride,0);
     free(Centroids);
     free(Distances);
     free(ClusterCounter);
@@ -545,7 +499,7 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
     free(ClusterMeans);
 }
 
-PointArrayList_t *LoadPointsDataset(int *Stride)
+PointArrayList_t *LoadPointsDataset(char *File,int *Stride)
 {    
     PointArrayList_t *PointList;
     float *Point;
@@ -555,9 +509,14 @@ PointArrayList_t *LoadPointsDataset(int *Stride)
     int LocalStride;
     int i;
     
-    Buffer = ReadTextFile("Dataset/data_blob.csv",0);
+    if( !File ) {
+        printf("LoadPointsDataset:Invalid file.\n");
+        return NULL;
+    }
+    
+    Buffer = ReadTextFile(File,0);
     if( Buffer == NULL ) {
-        DPrintf("Couldn't read file\n");
+        DPrintf("LoadPointsDataset:Couldn't read file %s\n",File);
         return NULL;
     }
 
@@ -604,23 +563,21 @@ PointArrayList_t *LoadPointsDataset(int *Stride)
 int main(int argc,char** argv)
 {
     PointArrayList_t *PointList;
+    int NumClusters;
     int Stride;
-//     Flower_t *FlowerDataset;
-    
-//     FlowerDataset = LoadIrisDataset();
-    PointList = LoadPointsDataset(&Stride);
+
+    if( argc != 3 ) {
+        printf("Usage:%s <Dataset File> <Number of Clusters>\n",argv[0]);
+        return -1;
+    }
+    PointList = LoadPointsDataset(argv[1],&Stride);
     
     if( PointList == NULL ) {
         DPrintf("Couldn't load point dataset.\n");
         return -1;
     }
-    KMeansClustering(PointList,5,Stride);
+    NumClusters = StringToInt(argv[2]);
+    KMeansClustering(PointList,NumClusters,Stride);
     PointArrayListCleanUp(PointList);
     free(PointList);
-//     if( !FlowerDataset ) {
-//         return -1;
-//     }
-    
-//     free(FlowerDataset);
-
 }
