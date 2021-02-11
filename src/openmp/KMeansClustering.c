@@ -407,17 +407,16 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
 //         2) Assign each points of the dataset to the nearest centroid.
 //         First get the distances...
         memset(Distances,0,DistancesSize);
-        #pragma omp parallel for firstprivate(Centroids,Dataset,Stride) /*private(j,k)*/ /*num_threads(MaxThreadNumber)*/ \
-//         schedule(static, (Dataset->NumPoints*NumCentroids)/MaxThreadNumber)
+        #pragma omp parallel for firstprivate(Centroids,Dataset,Stride) \
+        schedule(static, (NumCentroids*Stride)/MaxThreadNumber)
         for( int i = 0; i < Dataset->NumPoints; i++ ) {
             for( int j = 0; j < NumCentroids; j++ ) {
                 float LocalDistance = 0.f;
                 for( int k = 0; k < Stride; k++ ) {
-                    LocalDistance += (Centroids[j * Stride + k]
-                        - Dataset->Points[i * Stride + k]) * 
-                        (Centroids[j * Stride + k] - Dataset->Points[i * Stride + k]);
+                    float LocalCentroid = Centroids[j * Stride + k];
+                    float LocalPoint = Dataset->Points[i * Stride + k];
+                    LocalDistance += (LocalCentroid - LocalPoint) * (LocalCentroid - LocalPoint);
                 }
-                #pragma omp atomic write
                 Distances[i * NumCentroids + j] = LocalDistance;
             }
         }
@@ -425,7 +424,7 @@ void KMeansClustering(PointArrayList_t *Dataset,int NumCentroids,int Stride)
         memset(Clusters,0,ClusterSize);
 
 //         #pragma omp parallel firstprivate(ClusterCounter,Clusters)
-        #pragma omp parallel for /*schedule(guided)*/ \
+        #pragma omp parallel for schedule(guided) \
             \
             firstprivate(Dataset,Stride) shared(Distances,ClusterMeans,ClusterCounter) /*private(j)*/
         for( int i = 0; i < Dataset->NumPoints; i++ ) {

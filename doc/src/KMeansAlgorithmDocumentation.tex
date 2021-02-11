@@ -28,6 +28,11 @@
 \def\BState{\State\hskip-\ALG@thistlm}
 \makeatother
 
+% Algorithm Script Size
+\makeatletter
+\algrenewcommand\ALG@beginalgorithmic{\scriptsize}
+\makeatother
+
 % Needed to show code snippets...
 \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
 \newenvironment{Shaded}{}{}
@@ -88,7 +93,7 @@ CUDA framework.
 \section{Introduction}
 K-Means Clustering is an algorithm which is used to partition a set of points into k clusters in which each point belongs to the cluster
 with the smaller distance from the center that is called centroid.\newline
-The main algorithm can be divided into 3 main steps:
+The main algorithm can be divided into 4 main steps:
 \begin{itemize}
   \item Initialization Phase
   \item Assignment Step.
@@ -96,16 +101,17 @@ The main algorithm can be divided into 3 main steps:
   \item Convergence Check Step.
 \end{itemize}
 Details about each one will be given in the next chapters, in particular in chapter 2 a brief explanation of the algorithm is 
-given and a sample implementation using pseudo-code is shown, then in chapter 3 and 4 the sequential and parallel version is described, 
-and finally, in the last chapter, the performance will be evaluated by showing the differences between the sequential and parallel 
-version.\newline
+given and a sample implementation using pseudo-code is shown, then in chapter 3 and 4 the sequential and parallel version is 
+described, and finally, in the last chapter, the performance will be evaluated by showing the differences between the 
+sequential and parallel version.\newline
 
 \vspace{3cm}
 
 %-------------------------------------------------------------------------
 \section{Algorithm}
 
-K-Means algorithm, as stated in the introduction, is made of two steps that alternates until a stop condition is found.\newline
+K-Means algorithm, as stated in the introduction, is made of four steps that alternates until the last one, that represents 
+the exit condition, tells the algorithm to stop since there are no updates to the centroids position.\newline
 In order to describe it we need to define a few key elements.\newline
 First we need to define the data-set as a group of d-dimensional points:\newline
 
@@ -119,32 +125,82 @@ Then we need to define our centroids as a set made of k elements ($k \leq n$):\n
 \label{eq:Data-Set}
 S=\{S\textsubscript{1},S\textsubscript{2},S\textsubscript{3},\cdots,S\textsubscript{k}\}
 \end{equation}
-The goal is to partition the data-set into k clusters to minimize the within-cluster distance between each point and the centroid.
+the goal is to partition the data-set into k clusters to minimize the within-cluster distance between each point and the centroids.
 \newline
-The first step is the Initialization Phase, in this phase, the algorithm has to find random points that will be used as 
+The first step is the Initialization Phase, in this phase, the algorithm has to find some random points that will be used as 
 centroids to initialize it.\newline
-In this implementation the initial centroids are chosen from the starting k points contained in the data-set, this enable the algorithm
-to be predictable so that the differences between sequential and parallel version won't depends from the centroid's starting position,
-as long as the data-set is kept the same.
+In this implementation the initial centroids are chosen from the starting k points contained in the data-set, this enable the 
+algorithm to be predictable so that the differences between sequential and parallel version won't depends from the centroid's 
+starting position,as long as the data-set is kept the same.
 \newline
-Then the cluster are calculated using the chosen centroid's position by calculating the distance between each point and centroid, 
-assigning the closest point to the nearest centroid:\newline
+Then the clusters are calculated using the chosen centroid's position, by calculating the distance between each point and 
+centroid, that are then assigned to the nearest centroid:\newline
 \begin{multline}
 \label{eq:Centroids}
 S_i^{(t)} =\\
 \left \{ x_p : \left \| x_p - m^{(t)}_i \right \|^2 \le \left \| x_p - m^{(t)}_j \right \|^2 \ \forall j, 1 \le j \le k \right\}\\
 \end{multline}
 
-Since we now have created a new cluster made of n-points the centroid's position needs to be updated by calculating the mean distance
-between all the points inside the cluster:\newline
+since we now have created a new cluster made of n-points the centroid's position needs to be updated by calculating the new 
+mean value based on the position of all the points inside the cluster:\newline
 \begin{equation}
 \label{eq:first}
 m^{(t+1)}_i = \frac{1}{\left|S^{(t)}_i\right|} \sum_{x_j \in S^{(t)}_i} x_j 
 \end{equation}  
 
-The algorithm, repeats these two steps until the updated centroid's position is not so much different from the old centroid's position, 
-in fact, if the distance between the two points is negligible then the algorithm is said to have converged and the iterations can stop.
-\newline
+The algorithm, repeats these two steps until the updated centroid's position is not so much different from the old centroid's 
+position, in fact, if the distance between the new cluster position and the old one is negligible then the algorithm is said to 
+have converged and the algorithm stops.
+\\
+Below, a pseudo-code implementation of the algorithm:\\
+\subsection{Pseudo-Code}
+An example implementation can be seen below:
+\begin{algorithm}
+\caption{KMeansAlgorithm\newline
+Takes 3 parameters:Dataset,Number Of Points,Number of Centroids}\label{euclid}
+\begin{algorithmic}[1]
+\Procedure{KMeansAlgorithm}{Dataset[],n,k}
+	\For{\texttt{$i \gets 1$ to $k$}}
+        \State \texttt{Centroid[i] = Dataset[i]}
+    \EndFor
+    \While{true}
+       	\State {$SetClusters$ $\gets$ {0}}
+    		\For{\texttt{$i \gets 1$ to $n$}}
+    		    \State {$Min$ $\gets$ {-INF}}
+    			\For{\texttt{$j \gets 1$ to $k$}}
+        			\State {$Dist$ $\gets$ {$Dist(Dataset_{i},Centroid_{j})$}}
+        			\If {$Dist < Min$}
+        				\State {$Min$ $\gets$ {$Dist$}}
+        				\State {$Cluster_{i}$ $\gets$ {$Centroid_j$}}
+        			\EndIf
+    			\EndFor
+    		\EndFor
+    		\For{\texttt{$i \gets 1$ to $k$}}
+    		    \State {$ClusterSize$ $\gets$ {0}}
+    		    \State {$Sum$ $\gets$ {0}}
+    			\For{\texttt{$j \gets 1$ to $n$}}
+        			\If {$Cluster_{i} \neq i$}
+    					\State \textbf{continue}
+        			\EndIf
+        			\State {$Sum$ $\gets$ {$Sum + Dataset_{j}$}}
+				\State {$ClusterSize$ $\gets$ {$ClusterSize + 1$}}
+    			\EndFor
+    			\State {$Sum$ $\gets$ {$Sum / ClusterSize$}}
+			\State {$Delta$ $\gets$ {$VSub(Sum,Centroids_{i})$}}
+			\If {$Delta>Threshold$}
+    				\State \textbf{continue}
+        		\EndIf
+        		\State {$SetClusters$ $\gets$ {$SetCluster + 1$}}
+    		\EndFor
+    		\If {$SetClusters == k$}
+    			\State \textbf{exit}
+        	\EndIf
+    \EndWhile
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+\newpage
+
 
 \section{Implementation}
 \subsection{Tools}
@@ -207,11 +263,18 @@ horizontally,each displaying a specific step of the algorithm:\newline
 \subsection{Main Program}
 The algorithm is implemented in C and, as it can be seen from the Tools, it uses a fixed data-set that is loaded from a csv file.
 \newline
-This is done in order to be able to compare the sequential and parallel version, and see the difference in terms of execution times,
-without having to worry about the possible differences that can happens due to a different choice of Centroids/Points.
+This is done in order to be able to compare the sequential and parallel version, and see the difference in terms of execution 
+times,without having to worry about the possible differences that can happens due to a different choice of Centroids/Points.
 \newline
-The program is able to read the csv file and infer the vector dimension, called `Stride' in the source code,in order to determine if the 
-algorithm has to run on 2D,3D etc\ldots \newline
+The program is able to read the csv file and infer the vector dimension, called `Stride' in the source code,in order to 
+determine if the algorithm has to run on 2D,3D etc\ldots \newline
+The program takes two arguments: the path to the dataset file in csv format and the number of centroids.\\
+E.G:
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{\$ }\ExtensionTok{./KMeans} \NormalTok{ Dataset.csv 10}
+\end{Highlighting}
+\end{Shaded}
 \subsubsection{Sequential Version}
 The sequential version is made using a single function that contains an infinite loop that repeats all the required step until the exit
 condition is hit.\\
@@ -389,11 +452,11 @@ After initialization, we need to calculate the distances between each point and 
 \begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Distance Calculation,firstline=29,lastline=41]
 					   {"codes/Parallel/openmp/KMeansClustering.c"}
 \end{lstinputlisting}
-as we can see from the above code, we need to run two for loops to perform this calculation, in this instance, OpenMP is instructed to use a static scheduler as seen in the previous code, and to collapse the two for loops, which causes OpenMP to
-re-write the for loop in one big loop that goes from zero to (Dataset->NumPoints * NumCentroids) that it is then divided into
+as we can see from the above code, we need to run three nested for loops to perform this calculation, in this instance, OpenMP 
+is instructed to use a static scheduler as seen in the previous code, which causes OpenMP to divide the work among threads into
 chunk of size equal to the maximum allowed iteration to calculate all the required distances.\\
 After calculating all the distances we need, for each point in the dataset, to find the closest centroid:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Nearest Centroid Calculation,firstline=45,lastline=60]
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Nearest Centroid Calculation,firstline=45,lastline=61]
 					   {"codes/Parallel/openmp/KMeansClustering.c"}
 \end{lstinputlisting}
 in the above code, we can see that the scheduler has changed to a new type called `guided', this scheduler divides the work 
@@ -401,35 +464,34 @@ into multiple chunks of decreasing size until all the calculations have been per
 array, the closest one is found and saved into a shared array along with the number of points that belongs to that specific 
 cluster.\\
 It is important to note that, since the cluster's array is shared we need to make sure that each thread exclusively access it 
-by using the directive `critical' that makes sure that only one thread at time can access the shared resources.\\
+by using the directive `atomic' that makes sure that only one thread at time can access the shared resources.\\
 After creating the new clusters, we need to update the centroids position:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Mean Calculation I,firstline=63,lastline=70]
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Mean Calculation I,firstline=63,lastline=72]
 					   {"codes/Parallel/openmp/KMeansClustering.c"}
 \end{lstinputlisting}
 as we can see from the above code, we starts by calculating the sum of all positions of the points belonging to a specific 
-cluster, as said before, since the `ClusterMean' array is shared we need to make sure that there are no data-races by adding 
-the critical instruction.\\
+cluster, and, since the `ClusterMean' array is shared we need to make sure that there are no data-races by adding 
+the atomic instruction.\\
 After performing the sum of all points we need to divide it by the number of points contained in each cluster to obtain the 
 mean value:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Mean Calculation II,firstline=72,lastline=81]
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Mean Calculation II,firstline=74,lastline=84]
 					   {"codes/Parallel/openmp/KMeansClustering.c"}
 \end{lstinputlisting}
 the code is similar to the previous one, only difference is the final operation being a division rather than a sum.\\
 Finally, we need to see if we have reached our exit condition by comparing the new centroid's position with the old one:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Centroid's Position Comparison,firstline=83,lastline=94]
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Centroid's Position Comparison,firstline=86,lastline=96]
 					   {"codes/Parallel/openmp/KMeansClustering.c"}
 \end{lstinputlisting}
 the above snippet, uses a different directive to divide the work among the threads called a reduction.\\
-This operator performs a reduction, since the particular order in which the sum is calculated is not important.\\
 The algorithm is simple, for each centroid, the difference between the old value and the new is compared to a tolerance value,
 if the difference is less than the tolerance value, a value of one is added to the sum variable otherwise zero, the exit 
 condition occurs, when after iterating over all centroids, the sum variable is equal to the Number of centroids times the 
 stride:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Exit Condition,firstline=95,lastline=97]
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=OpenMP Exit Condition,firstline=97,lastline=99]
 					   {"codes/Parallel/openmp/KMeansClustering.c"}
 \end{lstinputlisting}
-as we can see from the above snippet, if it is the case then the two arrays are similar and the program can terminate his 
-execution, otherwise a new iteration is done until this condition is hit.\\
+as we can see from the above snippet, if it is the case then the two arrays are said to be similar and the program can 
+terminate his execution, otherwise a new iteration is done until this condition is hit.\\
 \section{Metrics}
 In order to see what advantages the parallel implementation has brought we need to measure the execution time of both 
 implementations by using the same data-set as well as the same number of clusters.\\
@@ -444,9 +506,58 @@ that measure the elapsed time in milliseconds, using the function `gettimeofday(
 \begin{table}[H]
 \centering
 \begin{tabular}{@{}cccccc@{}}
-\textbf{Number of Points} & \textbf{Number of Clusters} & \textbf{SP} & \textbf{Cuda} & \textbf{OpenMP} &  \textbf{SpeedUp} \\
+\textbf{Points} & \textbf{Clusters} & \textbf{C} & \textbf{OpenMP} & \textbf{Cuda} \\
+2048 & 256 & 232 ms & 89 ms & 136 ms \\
+2048 & 500 & 582 ms & 258 ms & 240 ms \\
+32768 & 10 & 292 ms & 287 ms & 72 ms \\
+32768 & 250 & 48046 ms & 6153 ms & 11781 ms \\
+50000 & 250 & 47392 ms & 9867 ms & 13741 ms \\
+50000 & 512 & 103881 ms & 24345 ms & 33461 ms \\
 \end{tabular}
 \caption{Execution Times}
-
 \end{table}
+
+Speed-Up is calculated in the next table:\\
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}cccccc@{}}
+\textbf{Points} & \textbf{Clusters} & \textbf{OpenMP} & \textbf{Cuda} \\
+2048 & 256 & 2.60 & 1.70 \\
+2048 & 500 & 2.25 & 2.42\\
+32768 & 10 & 1.01 & 4.05 \\
+32768 & 250 & 7.80 & 4.07 \\
+50000 & 250 & 4.80 & 3.44 \\
+50000 & 512 & 4.26 & 3.10 \\
+\end{tabular}
+\caption{Speed-Up}
+\end{table}
+as we can see from the table above, both parallel version performs better than the sequential one even in simple cases like the 
+first.\\
+We can also see that, with an higher number of Points/Clusters the parallel version is much faster than the sequential one.
+All the three versions have been tested using valgrind to show any memory leaks, and none was reported.\\
+The OpenMP version was debugged using `Intel Inspector' which reported no data races:\\
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{OpenMP_Inspector}
+\caption{Intel Inspector}
+\end{figure}
+as it can be seen in the above image.\\
+OpenMP code was also profiled using Intel's Vtune Profiler that showed optimal core usage when trying to run the last test case
+(50000 points and 512 clusters):\\
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{OpenMP_Vtune_Profiler}
+\caption{Intel Vtune Profiler}
+\end{figure}
+Finally, the CUDA version was profiled using NVidia's profiler called nvprof:\\
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{Cuda_NVProf}
+\caption{NVidia NVProf}
+\end{figure}
+that, as it can be seen from the above image, highlights the top kernels that required most of the time.\\
+In particular the kernels `ClusterComputeDistanceSquaredKernel' and `BuildClusterListKernel' are slower than the others.\\
+These two function are slower since they need to calculate and then find the nearest centroid for each point in the dataset.\\
+This means that the time required to perform these two calculations will grow linearly as the number of points or centroids 
+increases.
 \end{document}

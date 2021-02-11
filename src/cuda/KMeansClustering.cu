@@ -156,7 +156,7 @@ void CudaComputeDistances(float *DeviceDistanceList,float *DeviceCentroidList,in
     dim3   GridSize;
 
     BlockSize = dim3(32,16,1);
-    GridSize = dim3((NumPoints / 16) + 1,(NumCentroids / 16) +1,1);
+    GridSize = dim3((NumPoints / 16) + 1 ,(NumCentroids / 16) + 1 ,1);
     ClusterComputeDistanceSquaredKernel<<<GridSize,BlockSize>>>
         (DeviceDistanceList,DeviceCentroidList,NumCentroids,DevicePointList,NumPoints,Stride);
 
@@ -235,7 +235,7 @@ float *CudaInitCentroids(int NumCentroids,float *DevicePointList,int NumPoints,i
     CUDA_CHECK_RETURN(cudaMalloc((void**)&DeviceCentroidOutputList,CentroidListSize));
 
     BlockSize = dim3(16, Stride, 1);
-    GridSize = dim3(NumCentroids / 16 + 1,1,1);
+    GridSize = dim3((NumCentroids / 16) + 1,1,1);
     CentroidsInitKernel<<<GridSize,BlockSize>>>(DeviceCentroidOutputList,NumCentroids,DevicePointList,NumPoints,Stride);
 
 //     CUDA_CHECK_RETURN( cudaPeekAtLastError() );
