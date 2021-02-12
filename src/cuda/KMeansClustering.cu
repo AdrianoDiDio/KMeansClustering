@@ -137,7 +137,7 @@ int CudaCompareCentroidsList(int *DeviceSum,float *DeviceCentroidList,float *Dev
     int    Sum;
 
     BlockSize = dim3(256,Stride,1);
-    GridSize = dim3((NumCentroids / 16) + 1,1,1);
+    GridSize = dim3((NumCentroids + BlockSize.x - 1) / BlockSize.x,1,1);
     
     CUDA_CHECK_RETURN(cudaMemset((void *)DeviceSum,0,sizeof(int)));
     CompareCentroidsKernel<<<GridSize,BlockSize>>>(DeviceSum,DeviceCentroidList,DeviceOldCentroidList,NumCentroids,Stride);
