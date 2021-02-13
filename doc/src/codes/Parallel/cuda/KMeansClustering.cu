@@ -43,8 +43,7 @@ __global__ void MeanPointsInClustersKernel(float *Centroids,int NumCentroids,flo
         Centroids[ThreadIndexX * Stride + ThreadIndexY] /= ( ClusterCounter[ThreadIndexX] / Stride );
     }
 }
-__global__ void SumPointsInClustersKernel(float *Centroids,int NumCentroids,float *ClusterCounter,
-                                          int *Clusters,float *Points,int NumPoints,int Stride)
+__global__ void SumPointsInClustersKernel(float *Centroids,int NumCentroids,float *ClusterCounter,int *Clusters,float *Points,int NumPoints,int Stride)
 {
     int ThreadIndexX;
     int ThreadIndexY;

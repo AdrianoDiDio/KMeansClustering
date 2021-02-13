@@ -8,6 +8,7 @@
 \usepackage{amssymb}
 \usepackage{listings}
 \usepackage{algorithm}
+\usepackage{caption}
 \usepackage[noend]{algpseudocode}
 \usepackage{fancyvrb}
 \usepackage{xcolor}
@@ -33,6 +34,20 @@
 \algrenewcommand\ALG@beginalgorithmic{\scriptsize}
 \makeatother
 
+\captionsetup[algorithm]{font=footnotesize}
+\captionsetup[algorithm]{labelfont=normalfont,textfont=normalfont}
+\captionsetup[algorithm]{labelsep=colon}
+\captionsetup[algorithm]{justification=centering}
+\makeatletter
+\renewcommand\fs@ruled{%
+  \def\@fs@cfont{\rmfamily}%
+  \let\@fs@capt\floatc@plain%
+  \def\@fs@pre{\hrule height.8pt depth0pt \kern2pt}%% or use \def\@fs@pre{} to get rid of the top rule
+  \def\@fs@post{\kern2pt\hrule\relax}%% or use \def\@fs@post{} to get rid of the last rule
+  \def\@fs@mid{\kern2pt\hrule\kern2pt}%% or use \def\@fs@mid{} to get rid of the middle rule
+  \let\@fs@iftopcapt\iffalse}
+\makeatother
+
 % Needed to show code snippets...
 \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
 \newenvironment{Shaded}{}{}
@@ -47,6 +62,7 @@
   numbersep=10pt,
   tabsize=2,
   breaklines=true,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
   showspaces=false,
   numbersep=5pt,
   showstringspaces=false,
@@ -158,8 +174,6 @@ Below, a pseudo-code implementation of the algorithm:\\
 \subsection{Pseudo-Code}
 An example implementation can be seen below:
 \begin{algorithm}
-\caption{KMeansAlgorithm\newline
-Takes 3 parameters:Dataset,Number Of Points,Number of Centroids}\label{euclid}
 \begin{algorithmic}[1]
 \Procedure{KMeansAlgorithm}{Dataset[],n,k}
 	\For{\texttt{$i \gets 1$ to $k$}}
@@ -200,6 +214,7 @@ Takes 3 parameters:Dataset,Number Of Points,Number of Centroids}\label{euclid}
     \EndWhile
 \EndProcedure
 \end{algorithmic}
+\caption{KMeansAlgorithm Pseudo-Code}
 \end{algorithm}
 \newpage
 
@@ -336,67 +351,67 @@ Looking at the sequential version, we can see that many operations could benefit
 split-up in multiple threads.\\
 The parallel version has been implemented using two frameworks:Cuda and OpenMP.\\
 The differences between the two implementation are related to where the code is executed, while Cuda uses an NVidia GPU to 
-schedule and run the threads, the OpenMP framework uses the CPU.\\
+schedule and run the threads, the OpenMP framework uses the CPU.\newpage
 \nlparagraph{CUDA}
 
 The CUDA framework offers a simple API that can be used to launch thread organized in block and grids.\\
 All the CUDA functions are checked using a macro that calls a function to look for any error when calling one of the Cuda function.\\
 The parallel version is made of several function, each one having a specific task that is done by launching a kernel and waiting for his
-completion.\newpage
+completion.
 The first step is the initialization, here, we need to initialize the data-set by copying it into the GPU:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Data-Set Initialization,firstline=244,lastline=254]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Data-Set Initialization,firstline=245,lastline=256]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 using built-in CUDA functions cudaMalloc and cudaMemcpy to respectively allocate the memory into the GPU and to transfer the data from
 host to device.\\
 Then we need to initialize the centroids:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroids Initialization,firstline=186,lastline=203]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroids Initialization,firstline=185,lastline=204]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
-this function launch a kernel with the given BlockSize and GridSize that sets the Centroids data using multiple threads:\newpage
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroids Initialization,firstline=105,lastline=114]{
+this function launch a kernel with the given BlockSize and GridSize that sets the Centroids data using multiple threads:
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroids Initialization,firstline=104,lastline=113]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 each centroid is set independently from each other by using an unique ThreadIndexX and ThreadIndexY to access the array.\\
 Other variables, needed by the algorithm, are simply allocated on the device and a call to `cudaMemset' is made to initialize it.\\
 As an example, the snippet below show the initialization of the `ClusterCounter' variable:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Example Initialization,firstline=207,lastline=219]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Example Initialization,firstline=206,lastline=218]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 Full code of the initialization phase is below:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Main Initialization Code,firstline=272,lastline=280]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Main Initialization Code,firstline=271,lastline=279]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 Then, as seen in the sequential version, the main loop is declared as a simple infinite while loop and the algorithm begins:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Main Loop,firstline=284,lastline=295]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Main Loop,firstline=283,lastline=294]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 The first step, called `CudaComputeDistances' launches a kernel to calculate the distances between points and centroids:
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Distance Calculator Kernel Launcher,firstline=132,lastline=141]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Distance Calculator Kernel Launcher,firstline=131,lastline=140]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 the actual kernel is below:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Distance Calculator Kernel,firstline=81,lastline=103]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Distance Calculator Kernel,firstline=80,lastline=102]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 in the snippet above, the distance is calculated between a centroid and a point, the sum is first done locally by iterating over the 
 vectors' components and then stored in a shared array to be used later when calculating the minimum distance.\\
 Then, the clusters are built by evaluating the calculated distances through another kernel:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Cluster Builder Kernel,firstline=60,lastline=79]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Cluster Builder Kernel,firstline=59,lastline=78]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 each point selects the nearest centroid and saves it into a shared array containing the built cluster list.\\
 Now, we need to update the centroids position, by using the newly built clusters, but before doing so, we need to save the old centroid 
 list in order to be able to evaluate if the centroids position have changed or we have reached the stop condition:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroid List Backup,firstline=287,lastline=287]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroid List Saving,firstline=286,lastline=286]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 after saving it,we can calculate the new position by first clearing out the centroid list array:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroid Position Update,firstline=179,lastline=180]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Centroid Position Update,firstline=178,lastline=179]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 then, we first start by calculating the sum of all points belonging to each cluster:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Mean Sum Calculation,firstline=46,lastline=59]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Mean Sum Calculation,firstline=46,lastline=58]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 in this function we need to use an atomic instruction since multiple threads can access the array for updating it in parallel, without 
@@ -415,16 +430,16 @@ centroids list is similar to the new centroids list.\\
 this kernel evaluates all the centroids elements in the old and new list by calculating the difference between the elements.\\
 If the difference is lower than the tolerance value, then a value of 1 is added to the Sum array otherwise 0.\\
 When the kernel completes, the sum variable is copied from Device to host:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition Sum Copy,firstline=128,lastline=128]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition Sum Copy,firstline=129,lastline=129]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 and returned, full function can be seen below:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition Kernel Launcher,firstline=116,lastline=131]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition Kernel Launcher,firstline=115,lastline=130]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 as it can be seen above, the function returns 0 if the centroids positions have changed during last iteration or 1 if not.\\
 In the main loop, after calling it, we check to see if we can stop by comparing the returned value to 1:\\
-\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition,firstline=290,lastline=293]{
+\begin{lstinputlisting}[language=C,style=CSnippetStyle,caption=CUDA Exit Condition,firstline=289,lastline=292]{
 	"codes/Parallel/cuda/KMeansClustering.cu"}
 \end{lstinputlisting}
 if it is true then the program stops the main loop,saves the result in a csv file and exit.\\
